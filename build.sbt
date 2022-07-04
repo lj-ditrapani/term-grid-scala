@@ -1,3 +1,7 @@
+// ZIO apps call java.lang.System.exit(code) https://github.com/zio/zio/issues/6895
+// run / fork := true
+// forking detaches terminal; can't manually test with sbt run
+
 addCommandAlias("fmt", ";scalafmtSbt;scalafmtAll")
 
 lazy val root = project
@@ -34,7 +38,7 @@ lazy val dependencies =
   new {
     val scalaTestV = "3.2.12"
 
-    val jline = "org.jline" % "jline-terminal" % "3.21.0"
+    val jline = "org.jline" % "jline-terminal-jansi" % "3.21.0"
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestV % "test"
     val scalaTestFreespec =
       "org.scalatest" %% "scalatest-freespec" % scalaTestV % "test"
