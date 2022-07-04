@@ -14,7 +14,8 @@ lazy val root = project
     maintainer := "lj-ditrapani",
     scalacOptions := compilerOptions,
     libraryDependencies ++= Seq(
-      dependencies.jline,
+      dependencies.jlineTerm,
+      dependencies.jlineRead,
       dependencies.scalaTest,
       dependencies.scalaTestFreespec,
     ),
@@ -37,8 +38,10 @@ lazy val compilerOptions =
 lazy val dependencies =
   new {
     val scalaTestV = "3.2.12"
+    val jlineV = "3.21.0"
 
-    val jline = "org.jline" % "jline-terminal-jansi" % "3.21.0"
+    val jlineTerm = "org.jline" % "jline-terminal-jansi" % jlineV
+    val jlineRead = "org.jline" % "jline-reader" % jlineV
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestV % "test"
     val scalaTestFreespec =
       "org.scalatest" %% "scalatest-freespec" % scalaTestV % "test"
