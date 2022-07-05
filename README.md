@@ -31,3 +31,16 @@ Dependencies:
 check for outdated dependencies
 
     sbt dependencyUpdates
+
+
+Design Idea
+-----------
+
+```
+trait Action[T]:
+    val keys: List[String]
+    def convert: T
+
+newTermGrid(): Task[TermGrid]
+inputLoop[T](actions: List[Action[T]], eventQueue: ZioQueue[T]): Task[Unit]
+```

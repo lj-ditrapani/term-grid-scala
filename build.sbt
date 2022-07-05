@@ -1,3 +1,5 @@
+import sbt.Keys.testFrameworks
+
 // ZIO apps call java.lang.System.exit(code) https://github.com/zio/zio/issues/6895
 // run / fork := true
 // forking detaches terminal; can't manually test with sbt run
@@ -16,9 +18,13 @@ lazy val root = project
     libraryDependencies ++= Seq(
       dependencies.jlineTerm,
       dependencies.jlineRead,
+      dependencies.zio,
       dependencies.scalaTest,
       dependencies.scalaTestFreespec,
+      dependencies.zioTest,
+      dependencies.zioTestSbt,
     ),
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
   )
   .enablePlugins(JavaAppPackaging)
 
@@ -37,12 +43,17 @@ lazy val compilerOptions =
 
 lazy val dependencies =
   new {
+    val zioV = "2.0.0"
     val scalaTestV = "3.2.12"
     val jlineV = "3.21.0"
 
     val jlineTerm = "org.jline" % "jline-terminal-jansi" % jlineV
     val jlineRead = "org.jline" % "jline-reader" % jlineV
+    val zio = "dev.zio" %% "zio" % zioV
+
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestV % "test"
     val scalaTestFreespec =
       "org.scalatest" %% "scalatest-freespec" % scalaTestV % "test"
+    val zioTest = "dev.zio" %% "zio-test" % zioV % Test
+    val zioTestSbt = "dev.zio" %% "zio-test-sbt" % zioV % Test
   }
