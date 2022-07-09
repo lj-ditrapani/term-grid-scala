@@ -34,17 +34,29 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
   }.orDie
 
 def inputLoop[T](actions: List[Action[T]], eventQueue: Queue[T], termGrid: ITermGrid): UIO[Unit] =
-  val keyMap = new KeyMap[T]()
+  val keyMap = createKeyMap(actions)
+  val terminal = termGrid.terminal
+  ZIO
+    .attemptBlocking {
+      terminal.enterRawMode()
+    }
+    .orDie
+    .flatMap { _ =>
+      val bindingReader = new BindingReader(terminal.reader())
+      val operation: UIO[Unit] = {
+        for
+          action <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
+          _ <- eventQueue.offer(action)
+        yield (): Unit
+      }
+      operation.repeat(Schedule.forever).map(_ => (): Unit)
+    }
+
+def repl[T](actions: List[Action[T]], termGrid: ITermGrid)(logic: T => UIO[Unit]): UIO[Unit] = ???
+
+private def createKeyMap[T](actions: List[Action[T]]): KeyMap[T] =
+  val keyMap = new KeyMap[T]
   actions.foreach { action =>
     keyMap.bind(action.convert, action.keys*)
   }
-  val terminal = termGrid.terminal
-  terminal.enterRawMode()
-  val bindingReader = new BindingReader(terminal.reader())
-  val operation: UIO[Unit] = {
-    val action = bindingReader.readBinding(keyMap).nn
-    eventQueue.offer(action).map(_ => (): Unit)
-  }
-  operation.repeat(Schedule.recurs(5)).map(_ => (): Unit)
-
-def repl[T](actions: List[Action[T]], termGrid: ITermGrid)(logic: T => UIO[Unit]): UIO[Unit] = ???
+  keyMap
