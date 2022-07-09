@@ -52,7 +52,24 @@ def inputLoop[T](actions: List[Action[T]], eventQueue: Queue[T], termGrid: ITerm
       operation.repeat(Schedule.forever).map(_ => (): Unit)
     }
 
-def repl[T](actions: List[Action[T]], termGrid: ITermGrid)(logic: T => UIO[Unit]): UIO[Unit] = ???
+def repl[T](actions: List[Action[T]], termGrid: ITermGrid)(logic: T => UIO[Unit]): UIO[Unit] =
+  val keyMap = createKeyMap(actions)
+  val terminal = termGrid.terminal
+  ZIO
+    .attemptBlocking {
+      terminal.enterRawMode()
+    }
+    .orDie
+    .flatMap { _ =>
+      val bindingReader = new BindingReader(terminal.reader())
+      val operation: UIO[Unit] = {
+        for
+          action <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
+          _ <- logic(action)
+        yield (): Unit
+      }
+      operation.repeat(Schedule.forever).map(_ => (): Unit)
+    }
 
 private def createKeyMap[T](actions: List[Action[T]]): KeyMap[T] =
   val keyMap = new KeyMap[T]
