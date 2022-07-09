@@ -23,3 +23,12 @@ https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocke
 - I think I want to get rid of the jline KeyMay/Bindings.
     - can I just read keypresses as stream of bytes?
 - Also, need a way to signal completion to repl/inputLoop.
+
+- Now I think I should have a
+    - trait Key
+    - with all possible keys
+    - 2 options:
+        - use read and and loop through multip byte keypress and parse keys
+        - just use KeyMap to map to TermGrid.Key
+    - input becomes Key instead of Int
+    - making every app parse 3 ints into an arrow key will be lame

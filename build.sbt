@@ -17,7 +17,6 @@ lazy val root = project
     scalacOptions := compilerOptions,
     libraryDependencies ++= Seq(
       dependencies.jlineTerm,
-      dependencies.jlineRead,
       dependencies.zio,
       dependencies.scalaTest,
       dependencies.scalaTestFreespec,
@@ -48,7 +47,6 @@ lazy val dependencies =
     val jlineV = "3.21.0"
 
     val jlineTerm = "org.jline" % "jline-terminal-jansi" % jlineV
-    val jlineRead = "org.jline" % "jline-reader" % jlineV
     val zio = "dev.zio" %% "zio" % zioV
 
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestV % "test"

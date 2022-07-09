@@ -11,7 +11,7 @@ From sbt console you can run these useful commands while you develop:
 
     compile
     test
-    run
+    run     # this is broken; stage instead
     fmt
 
 Deploying:
