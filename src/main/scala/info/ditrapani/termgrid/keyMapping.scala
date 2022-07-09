@@ -1,6 +1,6 @@
 package info.ditrapani.termgrid
 
-import org.jline.keymap.{BindingReader, KeyMap}
+import org.jline.keymap.KeyMap
 import KeyMap.{ctrl, esc, key}
 import org.jline.terminal.Terminal
 import org.jline.utils.InfoCmp.Capability

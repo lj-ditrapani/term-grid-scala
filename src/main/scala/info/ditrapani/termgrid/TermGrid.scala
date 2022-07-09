@@ -1,9 +1,7 @@
 package info.ditrapani.termgrid
 
 import org.jline.keymap.{BindingReader, KeyMap}
-import KeyMap.{ctrl, esc, key}
 import org.jline.terminal.{Terminal, TerminalBuilder}
-import org.jline.utils.InfoCmp.Capability
 import zio.{Task, Queue, Schedule, UIO, ZIO}
 
 trait ITermGrid:
@@ -29,7 +27,7 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
     TermGrid(height, width, terminal)
   }.orDie
 
-def inputLoop[T](eventQueue: Queue[T], termGrid: ITermGrid)(convert: Int => T): UIO[Unit] =
+def inputLoop[T](eventQueue: Queue[T], termGrid: ITermGrid)(convert: Key => T): UIO[Unit] =
   val terminal = termGrid.terminal
   ZIO
     .attemptBlocking {
@@ -38,17 +36,18 @@ def inputLoop[T](eventQueue: Queue[T], termGrid: ITermGrid)(convert: Int => T): 
     .orDie
     .flatMap { _ =>
       import org.jline.utils.NonBlockingReader
-      val reader: NonBlockingReader = terminal.reader().nn
+      val keyMap = makeKeyMapping(terminal)
+      val bindingReader = new BindingReader(terminal.reader())
       val operation: UIO[Unit] = {
         for
-          keyCode <- ZIO.attemptBlocking { reader.read() }.orDie
+          keyCode <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
           _ <- eventQueue.offer(convert(keyCode))
         yield (): Unit
       }
       operation.repeat(Schedule.forever).map(_ => (): Unit)
     }
 
-def repl(termGrid: ITermGrid)(logic: Int => UIO[Unit]): UIO[Unit] =
+def repl(termGrid: ITermGrid)(logic: Key => UIO[Unit]): UIO[Unit] =
   val terminal = termGrid.terminal
   ZIO
     .attemptBlocking {
@@ -56,10 +55,11 @@ def repl(termGrid: ITermGrid)(logic: Int => UIO[Unit]): UIO[Unit] =
     }
     .orDie
     .flatMap { _ =>
-      val reader = terminal.reader().nn
+      val keyMap = makeKeyMapping(terminal)
+      val bindingReader = new BindingReader(terminal.reader())
       val operation: UIO[Unit] = {
         for
-          keyCode <- ZIO.attemptBlocking { reader.read() }.orDie
+          keyCode <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
           _ <- logic(keyCode)
         yield (): Unit
       }
