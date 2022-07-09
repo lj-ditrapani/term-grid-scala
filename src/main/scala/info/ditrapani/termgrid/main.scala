@@ -2,7 +2,7 @@ package info.ditrapani.termgrid
 
 import org.jline.terminal.TerminalBuilder
 import org.jline.keymap.{BindingReader, KeyMap}
-import org.jline.keymap.KeyMap.{ctrl, esc, key}
+import KeyMap.{ctrl, esc, key}
 import org.jline.utils.InfoCmp.Capability
 
 @main def main: Unit =
@@ -13,9 +13,6 @@ import org.jline.utils.InfoCmp.Capability
     case Up
     case Down
 
-  val s: String = ctrl('c').nn
-  println(s"s.length = ${s.length}")
-  println(s.map(x => Integer.toHexString(x.toInt)).toList)
   val keyMap = new KeyMap[Action]()
   val terminal = TerminalBuilder.terminal().nn
   keyMap.bind(Action.Quit, "Q", "q", ctrl('c'), esc)
