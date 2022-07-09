@@ -1,6 +1,9 @@
 package info.ditrapani.termgrid
 
+import org.jline.keymap.{BindingReader, KeyMap}
+import KeyMap.{ctrl, esc, key}
 import org.jline.terminal.{Terminal, TerminalBuilder}
+import org.jline.utils.InfoCmp.Capability
 import zio.{Task, Queue, Schedule, UIO, ZIO}
 
 trait ITermGrid:

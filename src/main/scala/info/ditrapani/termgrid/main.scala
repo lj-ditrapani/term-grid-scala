@@ -1,7 +1,5 @@
 package info.ditrapani.termgrid
 
-import org.jline.terminal.TerminalBuilder
-import org.jline.utils.InfoCmp.Capability
 import zio.ZIO
 import zio.Console
 
