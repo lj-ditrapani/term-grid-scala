@@ -6,17 +6,32 @@ import org.jline.terminal.Terminal
 import org.jline.utils.InfoCmp.Capability
 
 def makeKeyMapping(terminal: Terminal): KeyMap[Key] =
-  import AsciiPrintable.*
+  import Alpha.*
   import Other.*
   val keyMap = new KeyMap[Key]()
-  keyMap.bind(A, "A")
-  keyMap.bind(Q, "Q")
-  keyMap.bind(j, "j")
-  keyMap.bind(k, "k")
-  keyMap.bind(q, "q")
+
+  new {
+    val pairs: List[(Key, String)] =
+      Alpha.values.toList.map { key => (key, key.toString) }
+    pairs.foreach { case (key, string) =>
+      keyMap.bind(key, string)
+    }
+  }
+
+  new {
+    val pairs: List[(Key, String)] =
+      Number.values.toList.map { key => (key, key.ordinal.toString) }
+    pairs.foreach { case (key, string) =>
+      keyMap.bind(key, string)
+    }
+  }
+
+  keyMap.bind(Space, " ")
   keyMap.bind(CtrlC, ctrl('c'))
   keyMap.bind(Esc, esc)
-  keyMap.bind(Space, " ")
   keyMap.bind(ArrowUp, key(terminal, Capability.cursor_up))
   keyMap.bind(ArrowDown, key(terminal, Capability.cursor_down))
+  keyMap.bind(ArrowLeft, key(terminal, Capability.cursor_left))
+  keyMap.bind(ArrowRight, key(terminal, Capability.cursor_right))
+
   keyMap
