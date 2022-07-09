@@ -4,26 +4,30 @@ import org.jline.terminal.TerminalBuilder
 import org.jline.keymap.{BindingReader, KeyMap}
 import KeyMap.{ctrl, esc, key}
 import org.jline.utils.InfoCmp.Capability
+import zio.ZIO
+import zio.Console
 
-@main def main: Unit =
+sealed trait Action extends Key[Action]
+case class Quit(termGrid: ITermGrid) extends Action:
+  val keys: List[String] = List("Q", "q", ctrl('c').nn, esc.nn)
+  def convert: Action = this
+case class Space(termGrid: ITermGrid) extends Action:
+  val keys: List[String] = List(" ")
+  def convert: Action = this
+case class Up(termGrid: ITermGrid) extends Action:
+  val keys: List[String] = List(key(termGrid.terminal, Capability.cursor_up).nn, "k")
+  def convert: Action = this
+case class Down(termGrid: ITermGrid) extends Action:
+  val keys: List[String] = List(key(termGrid.terminal, Capability.cursor_down).nn, "j")
+  def convert: Action = this
 
-  enum Action:
-    case Quit
-    case Space
-    case Up
-    case Down
+object Main extends zio.ZIOAppDefault:
 
-  val keyMap = new KeyMap[Action]()
-  val terminal = TerminalBuilder.terminal().nn
-  keyMap.bind(Action.Quit, "Q", "q", ctrl('c'), esc)
-  keyMap.bind(Action.Space, " ")
-  keyMap.bind(Action.Up, key(terminal, Capability.cursor_up), "k")
-  keyMap.bind(Action.Down, key(terminal, Capability.cursor_down), "j")
-  terminal.enterRawMode()
-  val reader = terminal.reader().nn
-  val bindingReader = new BindingReader(terminal.reader())
-
-  println("Term-grid!\n")
-  println(reader.read())
-  val action = bindingReader.readBinding(keyMap)
-  println(action)
+  def run =
+    for
+      termGrid <- newTermGrid(64, 40)
+      _ <- repl(List(Quit(termGrid), Space(termGrid), Up(termGrid), Down(termGrid)), termGrid) {
+        action =>
+          Console.printLine(action).orDie
+      }
+    yield (): Unit

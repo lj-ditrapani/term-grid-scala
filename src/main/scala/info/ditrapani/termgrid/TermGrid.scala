@@ -14,7 +14,7 @@ trait ITermGrid:
   def textk(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit]
   def terminal: Terminal
 
-trait Action[T]:
+trait Key[T]:
   val keys: List[String]
   def convert: T
 
@@ -33,7 +33,7 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
     TermGrid(height, width, terminal)
   }.orDie
 
-def inputLoop[T](actions: List[Action[T]], eventQueue: Queue[T], termGrid: ITermGrid): UIO[Unit] =
+def inputLoop[T](actions: List[Key[T]], eventQueue: Queue[T], termGrid: ITermGrid): UIO[Unit] =
   val keyMap = createKeyMap(actions)
   val terminal = termGrid.terminal
   ZIO
@@ -52,7 +52,7 @@ def inputLoop[T](actions: List[Action[T]], eventQueue: Queue[T], termGrid: ITerm
       operation.repeat(Schedule.forever).map(_ => (): Unit)
     }
 
-def repl[T](actions: List[Action[T]], termGrid: ITermGrid)(logic: T => UIO[Unit]): UIO[Unit] =
+def repl[T](actions: List[Key[T]], termGrid: ITermGrid)(logic: T => UIO[Unit]): UIO[Unit] =
   val keyMap = createKeyMap(actions)
   val terminal = termGrid.terminal
   ZIO
@@ -68,10 +68,11 @@ def repl[T](actions: List[Action[T]], termGrid: ITermGrid)(logic: T => UIO[Unit]
           _ <- logic(action)
         yield (): Unit
       }
-      operation.repeat(Schedule.forever).map(_ => (): Unit)
+      // TODO: change to recurUntil; and need continue function?
+      operation.repeat(Schedule.recurs(5)).map(_ => (): Unit)
     }
 
-private def createKeyMap[T](actions: List[Action[T]]): KeyMap[T] =
+private def createKeyMap[T](actions: List[Key[T]]): KeyMap[T] =
   val keyMap = new KeyMap[T]
   actions.foreach { action =>
     keyMap.bind(action.convert, action.keys*)
