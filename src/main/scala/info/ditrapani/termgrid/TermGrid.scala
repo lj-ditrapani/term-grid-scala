@@ -26,7 +26,7 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
     TermGrid(height, width, terminal)
   }.orDie
 
-def inputLoop(eventQueue: Queue[Int], termGrid: ITermGrid): UIO[Unit] =
+def inputLoop[T](eventQueue: Queue[T], termGrid: ITermGrid)(convert: Int => T): UIO[Unit] =
   val terminal = termGrid.terminal
   ZIO
     .attemptBlocking {
@@ -38,8 +38,8 @@ def inputLoop(eventQueue: Queue[Int], termGrid: ITermGrid): UIO[Unit] =
       val reader: NonBlockingReader = terminal.reader().nn
       val operation: UIO[Unit] = {
         for
-          number <- ZIO.attemptBlocking { reader.read() }.orDie
-          _ <- eventQueue.offer(number)
+          keyCode <- ZIO.attemptBlocking { reader.read() }.orDie
+          _ <- eventQueue.offer(convert(keyCode))
         yield (): Unit
       }
       operation.repeat(Schedule.forever).map(_ => (): Unit)
