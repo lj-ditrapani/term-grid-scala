@@ -30,6 +30,7 @@ def makeKeyMapping(terminal: Terminal): KeyMap[Key] =
   keyMap.bind(CtrlC, ctrl('c'))
   keyMap.bind(Esc, esc)
   keyMap.bind(ArrowUp, key(terminal, Capability.cursor_up))
+  // down and left map to B and D !!!  Or nothing, if B & D are not mapped
   keyMap.bind(ArrowDown, key(terminal, Capability.cursor_down))
   keyMap.bind(ArrowLeft, key(terminal, Capability.cursor_left))
   keyMap.bind(ArrowRight, key(terminal, Capability.cursor_right))
