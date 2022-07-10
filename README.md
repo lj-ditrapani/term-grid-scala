@@ -1,6 +1,12 @@
 term-grid-ui for scala zio
 ==========================
 
+Provides terminal I/O for interactive command line scala zio apps.
+- Input: Knocks the terminal into raw mode so each key press can be detected
+  and processed instead of waiting for the user to press enter.
+- Output: Simple 2D color character grid abstraction for terminal apps.
+
+
 Developing
 ----------
 
@@ -28,19 +34,6 @@ packaged here: `target/universal/<project>-<version>.zip`
 
 Dependencies:
 
-check for outdated dependencies
+Check for outdated dependencies
 
     sbt dependencyUpdates
-
-
-Design Idea
------------
-
-```
-trait Action[T]:
-    val keys: List[String]
-    def convert: T
-
-newTermGrid(): Task[TermGrid]
-inputLoop[T](actions: List[Action[T]], eventQueue: ZioQueue[T]): Task[Unit]
-```
