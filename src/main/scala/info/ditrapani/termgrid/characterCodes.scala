@@ -1,6 +1,5 @@
-/**
- * Keyboard characters
- **/
+/** Keyboard characters
+  */
 object KeyCodes:
   val esc = "\u001b"
   val enter = "\u000d"
