@@ -6,6 +6,8 @@ Provides terminal I/O for interactive command line scala zio apps.
   and processed instead of waiting for the user to press enter.
 - Output: Simple 2D color character grid abstraction for terminal apps.
 
+Conceptual port of [term-grid-node](https://github.com/lj-ditrapani/term-grid-node) on node.
+
 
 Developing
 ----------
