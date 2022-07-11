@@ -170,7 +170,7 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
     // Need to add 1 newline char for each line (= height)
     import TermGrid.cellWidth
     val sb: StringBuilder =
-      new StringBuilder(TermGrid.init.length + height * width * cellWidth + height)
+      new StringBuilder("." * (TermGrid.init.length + height * width * cellWidth + height))
     grid.zipWithIndex.foreach { case (row, y) =>
       val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
       row.zipWithIndex.foreach { case (_, x) =>
