@@ -209,4 +209,14 @@ private class TermGrid(
   def set(y: Int, x: Int, char: Char, fg: Int, bg: Int): UIO[Unit] = ???
   def textk(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit] = ???
 
+  private def checkBounds(y: Int, x: Int): Unit =
+    require(y >= 0 && y < height, "y index must be >= 0 and < grid height")
+    require(x >= 0 && x < width, "x index must be >= 0 and < grid width")
+
+  private def unsafeSet(y: Int, x: Int, char: Char, fg8: Int, bg8: Int): Unit =
+    val cell = grid(y)(x)
+    cell.char = char
+    cell.fg = fg8
+    cell.bg = bg8
+
 case class Cell(var char: Char, var fg: Int, var bg: Int)
