@@ -162,13 +162,13 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
       val bg = colorMap6To8(colors.lightGrey)
       ArraySeq.fill[Cell](height, width)(Cell('.', fg, bg))
     }
-    // Each cell needs 19 chars in the string buffer:
-    // - 9 to set fg color
-    // - 9 to set bg color
+    // Each cell needs 23 chars in the string buffer:
+    // - 11 to set fg color
+    // - 11 to set bg color
     // - 1 for utf8 unicode char
     // There are height * width cells
     // Need to add 1 newline char for each line (= height)
-    val cellWidth = 19
+    import TermGrid.cellWidth
     val sb: StringBuilder =
       new StringBuilder(TermGrid.init.length + height * width * cellWidth + height)
     grid.zipWithIndex.foreach { case (row, y) =>
@@ -176,8 +176,8 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
       row.zipWithIndex.foreach { case (_, x) =>
         val offset = yOffset + x * cellWidth
         sb.insert(offset, "\u001b[38;5;")
-        sb.insert(offset + 8, "m\u001b[48;5;")
-        sb.insert(offset + 17, 'm')
+        sb.insert(offset + 10, "m\u001b[48;5;")
+        sb.insert(offset + 21, 'm')
       }
       sb.insert(yOffset + width * cellWidth, '\n')
     }
@@ -188,6 +188,7 @@ private object TermGrid:
   val clear = "\u001b[2J"
   val init = "\u001B[?25l\u001b[0;0H"
   val reset = "\u001b[0m\u001B[?25h"
+  val cellWidth = 23
 
 private class TermGrid(
     height: Int,
@@ -196,10 +197,26 @@ private class TermGrid(
     grid: ArraySeq[ArraySeq[Cell]],
     sb: StringBuilder,
 ) extends ITermGrid:
+  import TermGrid.cellWidth
+
   def clear(): UIO[Unit] =
     Console.printLine(TermGrid.clear).orDie
 
-  def draw(): UIO[Unit] = ???
+  def draw(): UIO[Unit] =
+    for
+      _ <- ZIO.attempt {
+        grid.zipWithIndex.foreach { case (row, y) =>
+          val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
+          row.zipWithIndex.foreach { case (cell, x) =>
+            val offset = yOffset + x * cellWidth
+            sb.insert(offset + 7, f"${cell.fg}%03d")
+            sb.insert(offset + 18, f"${cell.bg}%03d")
+            sb.insert(offset + 22, cell.char)
+          }
+        }
+      }.orDie
+      _ <- Console.printLine(sb).orDie
+    yield (): Unit
 
   def reset(): UIO[Unit] =
     // TODO: should exit raw mode here, right?  But don't know how in jline...
@@ -207,9 +224,9 @@ private class TermGrid(
 
   def set(y: Int, x: Int, char: Char, fg: Int, bg: Int): UIO[Unit] =
     ZIO.attempt {
-      this.checkBounds(y, x)
+      checkBounds(y, x)
       checkColors(fg, bg)
-      this.unsafeSet(y, x, char, colorMap6To8(fg), colorMap6To8(bg))
+      unsafeSet(y, x, char, colorMap6To8(fg), colorMap6To8(bg))
     }.orDie
 
   def text(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit] =
