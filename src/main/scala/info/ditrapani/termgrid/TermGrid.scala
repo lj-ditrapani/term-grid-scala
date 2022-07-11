@@ -1,5 +1,6 @@
 package info.ditrapani.termgrid
 
+import colors.colorMap6To8
 import org.jline.keymap.{BindingReader, KeyMap}
 import org.jline.terminal.{Terminal, TerminalBuilder}
 import scala.collection.mutable.ArraySeq
@@ -144,7 +145,7 @@ trait ITermGrid:
     * @param bg
     *   6-bit background color to set to each cell. Must be in range [0-63] inclusive.
     */
-  def textk(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit]
+  def text(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit]
 
   /** Return the underlying jline Terminal */
   def terminal: Terminal
@@ -152,8 +153,6 @@ trait ITermGrid:
 /** Create a TermGrid
   */
 def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
-  import colors.colorMap6To8
-
   require(height >= 1, "Height must be positive.")
   require(width >= 1, "Width must be positive.")
   for terminal <- ZIO.attemptBlocking { TerminalBuilder.terminal().nn }.orDie
@@ -206,8 +205,14 @@ private class TermGrid(
     // TODO: should exit raw mode here, right?  But don't know how in jline...
     Console.printLine(TermGrid.reset).orDie
 
-  def set(y: Int, x: Int, char: Char, fg: Int, bg: Int): UIO[Unit] = ???
-  def textk(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit] = ???
+  def set(y: Int, x: Int, char: Char, fg: Int, bg: Int): UIO[Unit] =
+    ZIO.attempt {
+      this.checkBounds(y, x)
+      checkColors(fg, bg)
+      this.unsafeSet(y, x, char, colorMap6To8(fg), colorMap6To8(bg))
+    }.orDie
+
+  def text(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit] = ???
 
   private def checkBounds(y: Int, x: Int): Unit =
     require(y >= 0 && y < height, "y index must be >= 0 and < grid height")
@@ -220,3 +225,13 @@ private class TermGrid(
     cell.bg = bg8
 
 case class Cell(var char: Char, var fg: Int, var bg: Int)
+
+def checkColors(fg: Int, bg: Int): Unit =
+  checkColor(fg, "foreground", "fg")
+  checkColor(bg, "background", "bg")
+
+def checkColor(color: Int, desc: String, name: String): Unit =
+  require(
+    color <= 63 && color >= 0,
+    s"6-bit ${desc} color ${name} must be in range [0, 63] inclusive",
+  )
