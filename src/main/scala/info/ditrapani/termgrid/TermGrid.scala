@@ -156,38 +156,34 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
 
   require(height >= 1, "Height must be positive.")
   require(width >= 1, "Width must be positive.")
-  ZIO
-    .attemptBlocking {
-      TerminalBuilder.terminal().nn
+  for terminal <- ZIO.attemptBlocking { TerminalBuilder.terminal().nn }.orDie
+  yield {
+    val grid: ArraySeq[ArraySeq[Cell]] = {
+      val fg = colorMap6To8(colors.darkPurple)
+      val bg = colorMap6To8(colors.lightGrey)
+      ArraySeq.fill[Cell](height, width)(Cell('.', fg, bg))
     }
-    .orDie
-    .map { terminal =>
-      val grid: ArraySeq[ArraySeq[Cell]] = {
-        val fg = colorMap6To8(colors.darkPurple)
-        val bg = colorMap6To8(colors.lightGrey)
-        ArraySeq.fill[Cell](height, width)(Cell('.', fg, bg))
+    // Each cell needs 19 chars in the string buffer:
+    // - 9 to set fg color
+    // - 9 to set bg color
+    // - 1 for utf8 unicode char
+    // There are height * width cells
+    // Need to add 1 newline char for each line (= height)
+    val cellWidth = 19
+    val sb: StringBuilder =
+      new StringBuilder(TermGrid.init.length + height * width * cellWidth + height)
+    grid.zipWithIndex.foreach { case (row, y) =>
+      val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
+      row.zipWithIndex.foreach { case (_, x) =>
+        val offset = yOffset + x * cellWidth
+        sb.insert(offset, "\u001b[38;5;")
+        sb.insert(offset + 8, "m\u001b[48;5;")
+        sb.insert(offset + 17, 'm')
       }
-      // Each cell needs 19 chars in the string buffer:
-      // - 9 to set fg color
-      // - 9 to set bg color
-      // - 1 for utf8 unicode char
-      // There are height * width cells
-      // Need to add 1 newline char for each line (= height)
-      val cellWidth = 19
-      val sb: StringBuilder =
-        new StringBuilder(TermGrid.init.length + height * width * cellWidth + height)
-      grid.zipWithIndex.foreach { case (row, y) =>
-        val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
-        row.zipWithIndex.foreach { case (_, x) =>
-          val offset = yOffset + x * cellWidth
-          sb.insert(offset, "\u001b[38;5;")
-          sb.insert(offset + 8, "m\u001b[48;5;")
-          sb.insert(offset + 17, 'm')
-        }
-        sb.insert(yOffset + width * cellWidth, '\n')
-      }
-      TermGrid(height, width, terminal, grid, sb)
+      sb.insert(yOffset + width * cellWidth, '\n')
     }
+    TermGrid(height, width, terminal, grid, sb)
+  }
 
 private object TermGrid:
   val clear = "\u001b[2J"
