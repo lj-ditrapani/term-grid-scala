@@ -2,7 +2,84 @@ package info.ditrapani.termgrid
 
 import org.jline.keymap.{BindingReader, KeyMap}
 import org.jline.terminal.{Terminal, TerminalBuilder}
-import zio.{Ref, Queue, Task, Schedule, UIO, ZIO}
+import zio.{Console, Ref, Queue, Task, Schedule, UIO, ZIO}
+
+/** Waits for keypresses and puts the Key on the queue after transforming it into a T
+  *
+  * @param loopControlRef
+  *   The input loop will shutdown when this is Stop. The initial value should be Loop. The
+  *   application code should set the ref to Stop when input is no longer needed or app is ready to
+  *   shutdown.
+  * @param eventQueue
+  *   The loop will convert each Key into a T and offer it to this Queue for the application to
+  *   process at its leisure. The Queue is intended to service multiple event streams, hence why the
+  *   application author gets to pick the T.
+  * @param termGrid
+  *   The instance of termGrid to listen for key presses on.
+  *
+  * Intended for multi event source apps, for single-event source use inputLoop instead. The
+  * eventQueue is intended to be shared across mulitple event streams (like timers, websockets,
+  * kafka, etc).
+  */
+def inputLoop[T](loopControlRef: Ref[LoopControl], eventQueue: Queue[T], termGrid: ITermGrid)(
+    convert: Key => T,
+): UIO[Unit] =
+  val terminal = termGrid.terminal
+  ZIO
+    .attemptBlocking {
+      terminal.enterRawMode()
+    }
+    .orDie
+    .flatMap { _ =>
+      import org.jline.utils.NonBlockingReader
+      val keyMap = makeKeyMapping(terminal)
+      val bindingReader = new BindingReader(terminal.reader())
+      val operation: UIO[LoopControl] = {
+        for
+          key <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
+          _ <- eventQueue.offer(convert(key))
+          loopControl <- loopControlRef.get
+        yield loopControl
+      }
+      operation.repeat(Schedule.recurUntil(_.toBool)).map(_ => (): Unit)
+    }
+
+/** Waits for keypresses and executes logic on each Key
+  *
+  * @param termGrid
+  *   The instance of termGrid to listen for key presses on.
+  *
+  * @param logic
+  *   The logic to execute on each key press. The return value of this function will be used to
+  *   decide if the repl should loop again or stop.
+  *
+  * Intended for applications whose only event source is user key presses. For multi-event source
+  * apps, use inputLoop instead. The eventQueue is intended to be shared across multiple event
+  * streams (like timers, websockets messages, kafka records, etc).
+  */
+def repl(termGrid: ITermGrid)(logic: Key => UIO[LoopControl]): UIO[Unit] =
+  val terminal = termGrid.terminal
+  ZIO
+    .attemptBlocking {
+      terminal.enterRawMode()
+    }
+    .orDie
+    .flatMap { _ =>
+      val keyMap = makeKeyMapping(terminal)
+      val bindingReader = new BindingReader(terminal.reader())
+      val operation: UIO[LoopControl] = {
+        for
+          keyCode <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
+          loopControl <- logic(keyCode)
+        yield loopControl
+      }
+      // TODO: change to recurUntil; and need continue function?
+      operation.repeat(Schedule.recurUntil(_.toBool)).map(_ => (): Unit)
+    }
+
+enum LoopControl(val toBool: Boolean):
+  case Loop extends LoopControl(false)
+  case Stop extends LoopControl(true)
 
 /** Represents the terminal as a 2D grid with 64 colors. Each cell has a foreground color fg, a
   * background color bg and a unicode text character. Create an instance with the makeTermGrid
@@ -85,91 +162,47 @@ private object TermGrid:
   val clear = "\u001b[2J"
   val init = "\u001B[?25l\u001b[0;0H"
   val reset = "\u001b[0m\u001B[?25h"
-  val initSize = init.length
 
 private class TermGrid(height: Int, width: Int, override val terminal: Terminal) extends ITermGrid:
-  // val grid: Vector[Vector[Cell]]
-  val sb: StringBuilder = new StringBuilder()
+  import colors.colorMap6To8
+  import scala.collection.mutable.ArraySeq
 
-  def clear(): UIO[Unit] = ???
+  val grid: ArraySeq[ArraySeq[Cell]] = {
+    val fg = colorMap6To8(colors.darkPurple)
+    val bg = colorMap6To8(colors.lightGrey)
+    ArraySeq.fill[Cell](height, width)(Cell('.', fg, bg))
+  }
+  val sb: StringBuilder = {
+    // Each cell needs 19 chars in the string buffer:
+    // - 9 to set fg color
+    // - 9 to set bg color
+    // - 1 for utf8 unicode char
+    // There are height * width cells
+    // Need to add 1 newline char for each line (= height)
+    val cellWidth = 19
+    grid.zipWithIndex.foreach { case (row, y) =>
+      val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
+      row.zipWithIndex.foreach { case (_, x) =>
+        val offset = yOffset + x * cellWidth
+        sb.insert(offset, "\u001b[38;5;")
+        sb.insert(offset + 8, "m\u001b[48;5;")
+        sb.insert(offset + 17, 'm')
+      }
+      sb.insert(yOffset + width * cellWidth, '\n')
+    }
+    new StringBuilder(TermGrid.init.length + height * width * cellWidth + height)
+  }
+
+  def clear(): UIO[Unit] =
+    Console.printLine(TermGrid.clear).orDie
+
   def draw(): UIO[Unit] = ???
-  def reset(): UIO[Unit] = ???
+
+  def reset(): UIO[Unit] =
+    // TODO: should exit raw mode here, right?  But don't know how in jline...
+    Console.printLine(TermGrid.reset).orDie
+
   def set(y: Int, x: Int, char: Char, fg: Int, bg: Int): UIO[Unit] = ???
   def textk(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit] = ???
 
-/** Waits for keypresses and puts the Key on the queue after transforming it into a T
-  *
-  * @param loopControlRef
-  *   The input loop will shutdown when this is Stop. The initial value should be Loop. The
-  *   application code should set the ref to Stop when input is no longer needed or app is ready to
-  *   shutdown.
-  * @param eventQueue
-  *   The loop will convert each Key into a T and offer it to this Queue for the application to
-  *   process at its leisure. The Queue is intended to service multiple event streams, hence why the
-  *   application author gets to pick the T.
-  * @param termGrid
-  *   The instance of termGrid to listen for key presses on.
-  *
-  * Intended for multi event source apps, for single-event source use inputLoop instead. The
-  * eventQueue is intended to be shared across mulitple event streams (like timers, websockets,
-  * kafka, etc).
-  */
-def inputLoop[T](loopControlRef: Ref[LoopControl], eventQueue: Queue[T], termGrid: ITermGrid)(
-    convert: Key => T,
-): UIO[Unit] =
-  val terminal = termGrid.terminal
-  ZIO
-    .attemptBlocking {
-      terminal.enterRawMode()
-    }
-    .orDie
-    .flatMap { _ =>
-      import org.jline.utils.NonBlockingReader
-      val keyMap = makeKeyMapping(terminal)
-      val bindingReader = new BindingReader(terminal.reader())
-      val operation: UIO[LoopControl] = {
-        for
-          key <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
-          _ <- eventQueue.offer(convert(key))
-          loopControl <- loopControlRef.get
-        yield loopControl
-      }
-      operation.repeat(Schedule.recurUntil(_.toBool)).map(_ => (): Unit)
-    }
-
-/** Waits for keypresses and executes logic on each Key
-  *
-  * @param termGrid
-  *   The instance of termGrid to listen for key presses on.
-  *
-  * @param logic
-  *   The logic to execute on each key press. The return value of this function will be used to
-  *   decide if the repl should loop again or stop.
-  *
-  * Intended for applications whose only event source is user key presses. For multi-event source
-  * apps, use inputLoop instead. The eventQueue is intended to be shared across multiple event
-  * streams (like timers, websockets messages, kafka records, etc).
-  */
-def repl(termGrid: ITermGrid)(logic: Key => UIO[LoopControl]): UIO[Unit] =
-  val terminal = termGrid.terminal
-  ZIO
-    .attemptBlocking {
-      terminal.enterRawMode()
-    }
-    .orDie
-    .flatMap { _ =>
-      val keyMap = makeKeyMapping(terminal)
-      val bindingReader = new BindingReader(terminal.reader())
-      val operation: UIO[LoopControl] = {
-        for
-          keyCode <- ZIO.attemptBlocking { bindingReader.readBinding(keyMap).nn }.orDie
-          loopControl <- logic(keyCode)
-        yield loopControl
-      }
-      // TODO: change to recurUntil; and need continue function?
-      operation.repeat(Schedule.recurUntil(_.toBool)).map(_ => (): Unit)
-    }
-
-enum LoopControl(val toBool: Boolean):
-  case Loop extends LoopControl(false)
-  case Stop extends LoopControl(true)
+case class Cell(var char: Char, var fg: Int, var bg: Int)
