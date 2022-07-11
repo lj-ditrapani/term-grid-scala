@@ -171,6 +171,7 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
     import TermGrid.cellWidth
     val sb: StringBuilder =
       new StringBuilder("." * (TermGrid.init.length + height * width * cellWidth + height))
+    sb.insert(0, TermGrid.init)
     grid.zipWithIndex.foreach { case (row, y) =>
       val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
       row.zipWithIndex.foreach { case (_, x) =>
@@ -237,8 +238,8 @@ private class TermGrid(
       val bg8Bit = colorMap6To8(bg)
       require(x + text.length <= width, "x + text.length must be <= grid width")
       for (i <- 0 until text.length) {
-        val xIndex = x + i
-        val char = text.charAt(i)
+        val xIndex: Int = x + i
+        val char: Char = text.charAt(i)
         unsafeSet(y, xIndex, char, fg8Bit, bg8Bit)
       }
     }.orDie
