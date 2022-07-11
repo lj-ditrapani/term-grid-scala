@@ -212,7 +212,19 @@ private class TermGrid(
       this.unsafeSet(y, x, char, colorMap6To8(fg), colorMap6To8(bg))
     }.orDie
 
-  def text(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit] = ???
+  def text(y: Int, x: Int, text: String, fg: Int, bg: Int): UIO[Unit] =
+    ZIO.attempt {
+      checkBounds(y, x)
+      checkColors(fg, bg)
+      val fg8Bit = colorMap6To8(fg)
+      val bg8Bit = colorMap6To8(bg)
+      require(x + text.length <= width, "x + text.length must be <= grid width")
+      for (i <- 0 until text.length) {
+        val xIndex = x + i
+        val char = text.charAt(i)
+        unsafeSet(y, xIndex, char, fg8Bit, bg8Bit)
+      }
+    }.orDie
 
   private def checkBounds(y: Int, x: Int): Unit =
     require(y >= 0 && y < height, "y index must be >= 0 and < grid height")
