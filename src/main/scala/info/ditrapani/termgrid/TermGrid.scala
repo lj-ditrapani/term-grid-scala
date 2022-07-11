@@ -162,27 +162,7 @@ def newTermGrid(height: Int, width: Int): UIO[ITermGrid] =
       val bg = colorMap6To8(colors.lightGrey)
       ArraySeq.fill[Cell](height, width)(Cell('.', fg, bg))
     }
-    // Each cell needs 23 chars in the string buffer:
-    // - 11 to set fg color
-    // - 11 to set bg color
-    // - 1 for utf8 unicode char
-    // There are height * width cells
-    // Need to add 1 newline char for each line (= height)
-    import TermGrid.cellWidth
-    val sb: StringBuilder =
-      new StringBuilder("." * (TermGrid.init.length + height * width * cellWidth + height))
-    sb.insert(0, TermGrid.init)
-    grid.zipWithIndex.foreach { case (row, y) =>
-      val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
-      row.zipWithIndex.foreach { case (_, x) =>
-        val offset = yOffset + x * cellWidth
-        sb.insert(offset, "\u001b[38;5;")
-        sb.insert(offset + 10, "m\u001b[48;5;")
-        sb.insert(offset + 21, 'm')
-      }
-      sb.insert(yOffset + width * cellWidth, '\n')
-    }
-    TermGrid(height, width, terminal, grid, sb)
+    TermGrid(height, width, terminal, grid)
   }
 
 private object TermGrid:
@@ -196,7 +176,6 @@ private class TermGrid(
     width: Int,
     override val terminal: Terminal,
     grid: ArraySeq[ArraySeq[Cell]],
-    sb: StringBuilder,
 ) extends ITermGrid:
   import TermGrid.cellWidth
 
@@ -205,16 +184,26 @@ private class TermGrid(
 
   def draw(): UIO[Unit] =
     for
-      _ <- ZIO.attempt {
-        grid.zipWithIndex.foreach { case (row, y) =>
-          val yOffset = TermGrid.init.length + y * (width * cellWidth + 1)
-          row.zipWithIndex.foreach { case (cell, x) =>
-            val offset = yOffset + x * cellWidth
-            sb.insert(offset + 7, f"${cell.fg}%03d")
-            sb.insert(offset + 18, f"${cell.bg}%03d")
-            sb.insert(offset + 22, cell.char)
+      sb <- ZIO.attempt {
+        // Each cell needs 23 chars in the string buffer:
+        // - 11 to set fg color
+        // - 11 to set bg color
+        // - 1 for utf8 unicode char
+        // There are height * width cells
+        // Need to add 1 newline char for each line (= height)
+        import TermGrid.cellWidth
+        val sb: StringBuilder =
+          new StringBuilder(TermGrid.init.length + height * width * cellWidth + height)
+        sb.append(TermGrid.init)
+        grid.foreach { row =>
+          row.foreach { cell =>
+            sb.append(s"\u001b[38;5;${cell.fg}m")
+            sb.append(s"\u001b[48;5;${cell.bg}m")
+            sb.append(cell.char)
           }
+          sb.append('\n')
         }
+        sb
       }.orDie
       _ <- Console.printLine(sb).orDie
     yield (): Unit

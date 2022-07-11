@@ -7,7 +7,7 @@ import zio.Console
 object Main extends zio.ZIOAppDefault:
   def run =
     for
-      termGrid <- newTermGrid(10, 10)
+      termGrid <- newTermGrid(10, 30)
       _ <- termGrid.clear()
       _ <- termGrid.draw()
       _ <- repl(termGrid) { key =>
